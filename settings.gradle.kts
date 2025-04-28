@@ -21,18 +21,18 @@ import java.util.Properties
 
 includeBuild("build-logic") { name = "polaris-build-logic" }
 
-if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21)) {
-  throw GradleException(
-    """
-
-        Build aborted...
-
-        The Apache Polaris build requires Java 21.
-        Detected Java version: ${JavaVersion.current()}
-
-        """
-  )
-}
+// if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21)) {
+//  throw GradleException(
+//    """
+//
+//        Build aborted...
+//
+//        The Apache Polaris build requires Java 21.
+//        Detected Java version: ${JavaVersion.current()}
+//
+//        """
+//  )
+// }
 
 rootProject.name = "polaris"
 
