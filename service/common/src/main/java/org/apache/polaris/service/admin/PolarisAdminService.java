@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.catalog.Namespace;
@@ -102,6 +103,7 @@ import org.apache.polaris.core.secrets.UserSecretReference;
 import org.apache.polaris.core.secrets.UserSecretsManager;
 import org.apache.polaris.core.storage.PolarisStorageConfigurationInfo;
 import org.apache.polaris.core.storage.StorageLocation;
+import org.apache.polaris.core.storage.*;
 import org.apache.polaris.core.storage.aws.AwsStorageConfigurationInfo;
 import org.apache.polaris.core.storage.azure.AzureStorageConfigurationInfo;
 import org.apache.polaris.service.catalog.common.CatalogHandler;
@@ -537,6 +539,41 @@ public class PolarisAdminService {
   }
 
   /**
+   * Checks if the given `CatalogEntity` does not have access to its storage.
+   *
+   * <p>This method validates the access permissions for the default base location of the catalog
+   * entity by checking both READ and WRITE actions. If any of these actions fail, the method
+   * returns `true`, indicating that the catalog does not have access to its storage.
+   *
+   * @param entity the `PolarisEntity` representing the catalog to check
+   * @return `true` if the catalog does not have access to its storage, `false` otherwise
+   */
+  private boolean catalogDoesNotHaveAccessToStorage(@NotNull PolarisEntity entity) {
+    var metaStore = getCurrentPolarisContext().getMetaStore();
+    var storageIntegration =
+        metaStore.loadPolarisStorageIntegration(getCurrentPolarisContext(), entity);
+    var storageConfigurationInfo = ((CatalogEntity) entity).getStorageConfigurationInfo();
+    if (storageIntegration == null) {
+      return false;
+    }
+    if (storageConfigurationInfo == null) {
+      return false;
+    }
+    var accessValidation =
+        storageIntegration
+            .validateAccessToLocations(
+                storageConfigurationInfo,
+                Set.of(PolarisStorageActions.READ, PolarisStorageActions.WRITE),
+                Set.of(((CatalogEntity) entity).getDefaultBaseLocation()))
+            .values()
+            .stream();
+    return accessValidation.noneMatch(
+        validationResult ->
+            !validationResult.get(PolarisStorageActions.READ).isSuccess()
+                || !validationResult.get(PolarisStorageActions.WRITE).isSuccess());
+  }
+
+  /**
    * True if the `CatalogEntity` has a default base location or allowed location that overlaps with
    * that of any existing catalog. If `ALLOW_OVERLAPPING_CATALOG_URLS` is set to true, this check
    * will be skipped.
@@ -665,6 +702,11 @@ public class PolarisAdminService {
           "Cannot create Catalog %s. One or more of its locations overlaps with an existing catalog",
           entity.getName());
     }
+    //    if (catalogDoesNotHaveAccessToStorage(entity)) {
+    //      throw new BadRequestException(
+    //          "Cannot create Catalog %s. Storage integration access validation failed",
+    //          entity.getName());
+    //    }
 
     // After basic validations, now populate id and creation timestamp.
     entity =
@@ -844,6 +886,11 @@ public class PolarisAdminService {
           "Cannot update Catalog %s. One or more of its new locations overlaps with an existing catalog",
           updatedEntity.getName());
     }
+    //    if (catalogDoesNotHaveAccessToStorage(updatedEntity)) {
+    //      throw new BadRequestException(
+    //          "Cannot update Catalog %s. Storage integration access validation failed",
+    //          updatedEntity.getName());
+    //    }
 
     CatalogEntity returnedEntity =
         Optional.ofNullable(
