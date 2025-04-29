@@ -576,11 +576,13 @@ public class PolarisAdminService {
           "Cannot create Catalog %s. One or more of its locations overlaps with an existing catalog",
           entity.getName());
     }
-    //    if (catalogDoesNotHaveAccessToStorage(entity)) {
-    //      throw new BadRequestException(
-    //          "Cannot create Catalog %s. Storage integration access validation failed",
-    //          entity.getName());
-    //    }
+    var checkStorageAccess =
+        "true".equalsIgnoreCase(entity.getPropertiesAsMap().get("storage-access-validation"));
+    if (checkStorageAccess && catalogDoesNotHaveAccessToStorage(entity)) {
+      throw new BadRequestException(
+          "Cannot create Catalog %s. Storage integration access validation failed",
+          entity.getName());
+    }
 
     long id =
         entity.getId() <= 0
@@ -741,11 +743,14 @@ public class PolarisAdminService {
           "Cannot update Catalog %s. One or more of its new locations overlaps with an existing catalog",
           updatedEntity.getName());
     }
-    //    if (catalogDoesNotHaveAccessToStorage(updatedEntity)) {
-    //      throw new BadRequestException(
-    //          "Cannot update Catalog %s. Storage integration access validation failed",
-    //          updatedEntity.getName());
-    //    }
+
+    var checkStorageAccess =
+        "true".equalsIgnoreCase(updateRequest.getProperties().get("storage-access-validation"));
+    if (checkStorageAccess && catalogDoesNotHaveAccessToStorage(updatedEntity)) {
+      throw new BadRequestException(
+          "Cannot update Catalog %s. Storage integration access validation failed",
+          updatedEntity.getName());
+    }
 
     CatalogEntity returnedEntity =
         Optional.ofNullable(
